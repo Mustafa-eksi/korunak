@@ -9,7 +9,7 @@ void mount_usb(usb_storage storage) {
 void dump_durum(void) {
 	for(size_t i = 0; i < durum.usb_index; i++) {
 		printf("device_name: %s\n", durum.storages[i].disk_name);
-		for(size_t j = 0; j < durum.storages[i].devp_index-1; j++){
+		for(size_t j = 0; j < durum.storages[i].devp_index; j++){
 			printf("	dev path %ld: %s\n", j, durum.storages[i].dev_paths[j]);
 		}
 	}
@@ -43,18 +43,22 @@ void init_kilit(void) {
 		char device_name[LS_BUFFER_CAP] = {0};
 		for(size_t i = 20; i < strlen(buff); i++) {
 			if(buff[i] == '-') {
-				strncpy(device_name, buff+20, i);
+				strncpy(device_name, buff+20, i-20);
 				break;
 			}
 		}
+		
+		//continue;
 		if(durum.usb_index != 0) {
+			printf("index:%ld deviceName: %s\n", durum.usb_index,device_name);
 			bool eklendi = false;
 			for(size_t i = 0; i < durum.usb_index; i++) {
+				printf("i : %ld\n%s = %s\n", i, durum.storages[i].disk_name, device_name);
 				if(strcmp(durum.storages[i].disk_name, device_name) == 0) {
-					
 					strncpy(
-					durum.storages[i].dev_paths[durum.storages[i].devp_index],
-					link_buffer, strlen(link_buffer));
+						durum.storages[i].dev_paths[durum.storages[i].devp_index],
+						link_buffer, strlen(link_buffer)
+					);
 					durum.storages[i].devp_index += 1;
 					eklendi = true;
 				}
@@ -62,24 +66,27 @@ void init_kilit(void) {
 			if(!eklendi) {
 				printf("eklenmedi: %s\n", device_name);
 				durum.storages[durum.usb_index] = (usb_storage){
-					.disk_name = device_name,
 					.devp_index = 1,
 					.checked = false
 				};
+				strncpy(durum.storages[durum.usb_index].disk_name, device_name, strlen(device_name));
 				strncpy(durum.storages[durum.usb_index].dev_paths[0], link_buffer, strlen(link_buffer));
 				durum.usb_index += 1;
 				durum.usb_index++;
 			}
 		} else {
+			printf("deviceName: %s\n",device_name);
 			durum.storages[durum.usb_index] = (usb_storage){
-				.disk_name = device_name,
 				.devp_index = 1,
 				.checked = false
 			};
+			strncpy(durum.storages[durum.usb_index].disk_name, device_name, strlen(device_name));
 			strncpy(durum.storages[durum.usb_index].dev_paths[0], link_buffer, strlen(link_buffer));
 			durum.usb_index += 1;
+			printf("disk_name: %s\n", durum.storages[0].disk_name);
 		}
 		//printf("linked: %s\n", link_buffer);
+		memset(buff, 0, strlen(buff));
 	}
 	pclose(fl);
 }

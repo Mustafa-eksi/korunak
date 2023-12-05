@@ -14,7 +14,7 @@
 #define MAX_PART 16
 
 typedef struct usb_storage {
-	char* disk_name;
+	char disk_name[LS_BUFFER_CAP];
 	char dev_paths[MAX_PART][LS_BUFFER_CAP];
 	size_t devp_index;
 	bool checked;

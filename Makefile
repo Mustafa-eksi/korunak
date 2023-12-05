@@ -1,4 +1,4 @@
-CFLAGS=-Wall -I/usr/include/
+CFLAGS=-Wall -ggdb -I/usr/include/
 LIBS=-L/usr/local/lib/raylib/ -lraylib
 
 korunak: korunak.c kilitler.c kilitler.h

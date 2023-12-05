@@ -16,7 +16,8 @@ KilitState state = {
 };
 
 int main(void) {
-	detect_new_usbs();
+	init_kilit();
+	dump_durum();
 	return 0;
 	InitWindow(1920, 1080, "Korunak kilit");
 	int w = GetScreenWidth(), h = GetScreenHeight();

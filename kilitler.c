@@ -168,7 +168,42 @@ void search_non_hashed(kilit_state *current_state) {
 	}
 }
 
+void parse_file(kilit_state *current_state, char passwords[HASH_FILE_CAP], ssize_t count) {
+	int line_index = 0;
+	char salt[BCRYPT_HASHSIZE];
+	int last_index = 0;
+	for(ssize_t i = 0; i < count; i++) {
+		char one_line[HASHED_CAP] = {0};
+		if(passwords[i] == '\n') {
+			if(line_index == 0) {
+				strncpy(salt, passwords, i);
+			}else {
+				strncpy(one_line, passwords+last_index, i-last_index);
+				printf("one_line: %s\n", one_line);
+			}
+			line_index++;
+			last_index = i;
+			continue;
+		}
+	}
+}
+
+void sync_with_file(kilit_state *current_state) {
+	if (access(HASHED_PATH, F_OK) == 0) {
+		int hashed_fd = open(HASHED_PATH, O_RDONLY);
+		if(hashed_fd == -1) {
+			exit(-1);
+		}
+		char passwords[HASH_FILE_CAP];
+		ssize_t count = read(hashed_fd, passwords, HASH_FILE_CAP);
+		parse_file(current_state, passwords, count);
+	} else {
+		exit(-1);
+	}
+}
+
 void init_kilit(kilit_state *current_state) {
+	sync_with_file(current_state);
 	if(bcrypt_gensalt(5, current_state->salt) != 0) {
 		printf("GENSALT FAILED\n");
 	}

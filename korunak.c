@@ -10,7 +10,7 @@ kilit_state durum = {0};
 int main(void) {
 	init_kilit(&durum);
 	dump_durum(durum);
-	search_non_hashed(&durum);
+	printf("%s\n", search_non_hashed(&durum) ? "Geçer" : "Geçmez");
 	return 0;
 	InitWindow(1920, 1080, "Korunak kilit");
 	int w = GetScreenWidth(), h = GetScreenHeight();

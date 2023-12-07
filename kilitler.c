@@ -111,29 +111,44 @@ void get_mountpoints(kilit_state *current_state) {
 						current_state->storages[ij.i].mount_devs[ij.j].mount_point,
 						mount_point
 					);
-					current_state->storages[ij.i].mount_devs[ij.j].is_mounted = true;
-					current_state->storages[ij.i].does_have_mounted_part = true;
+					printf("mountpoint %s, %s\n",
+					current_state->storages[ij.i].mount_devs[ij.j].dev_path,
+					current_state->storages[ij.i].mount_devs[ij.j].mount_point);
+					if(strlen(current_state->storages[ij.i].mount_devs[ij.j].mount_point) > 1) {
+						current_state->storages[ij.i].mount_devs[ij.j].is_mounted = true;
+						current_state->storages[ij.i].does_have_mounted_part = true;	
+					}					
 				}
 				break;
 			}
 		}
 		
-		printf("%ld, %ld, devname: %s mountpoint: baş'%s'son mountpoint: %s\n", 
+		/*printf("%ld, %ld, devname: %s mountpoint: baş'%s'son mountpoint: %s\n", 
 			ij.i, ij.j, name,
 			current_state->storages[ij.i].mount_devs[ij.j].mount_point,
-			mount_point);
+			mount_point);*/
 		line_index++;
 	}
 }
 
-bool check_for_password(char non_hashed[NON_HASHED_CAP], const char salt[BCRYPT_HASHSIZE]) {
-	char result[HASHED_CAP] = {0};
-	bcrypt_hashpw(non_hashed, salt, result);
-	printf("non_hashed: %s, hashed: %s\n", non_hashed, result);
-	return true;
+bool search_password(const kilit_state current_state, password_device non_hashed) {
+	for(size_t i = 0; i < current_state.stored_count; i++) {
+		if(strcmp(current_state.stored[i].device_name, non_hashed.device_name) == 0) {
+			printf("non_hashed: '%s'\nhashed: '%s'\n", non_hashed.hashed_password, current_state.stored[i].hashed_password);
+			int ret = bcrypt_checkpw(non_hashed.hashed_password, current_state.stored[i].hashed_password);
+			if(ret < 0) {
+				printf("ERROR: bcrypt_checkpw returned %d\n", ret);
+				exit(-1);
+			}
+			return ret == 0;
+		}
+	}
+	printf("false\n");
+	return false;
 }
 
-bool search_for(char mountpoint[PATH_CAP], const char salt[BCRYPT_HASHSIZE]) {
+bool search_for(const kilit_state current_state, const char mountpoint[PATH_CAP], const char disk_name[PATH_CAP]) {
+	
 	char buff[COMMAND_OUTPUT_CAP] = {0};
 	char command[PATH_CAP] = {0};
 	sprintf(command, "find %s -name "PASS_FILE_NAME, mountpoint);
@@ -143,43 +158,73 @@ bool search_for(char mountpoint[PATH_CAP], const char salt[BCRYPT_HASHSIZE]) {
 		return false;
 	}
 	while(fgets(buff, sizeof(buff), fl) != NULL) {
+		printf("search for\n");
 		char clean_path[COMMAND_OUTPUT_CAP] = {0};
 		strncpy(clean_path, buff, strlen(buff)-1); // trim the last '\n'
 		int non_hashed = open(clean_path, O_RDONLY);
 		char non_hashed_content[NON_HASHED_CAP] = {0};
 		read(non_hashed, non_hashed_content, NON_HASHED_CAP);
-		return check_for_password(non_hashed_content, salt);
+		password_device passdev = {0};
+		strcpy(passdev.device_name, disk_name);
+		strncpy(passdev.hashed_password, non_hashed_content, strlen(non_hashed_content)-1);
+		return search_password(current_state, passdev);
 		//printf("-- %s\n", non_hashed_content);
 	}
-	return true;
+	return false;
 }
 
-void search_non_hashed(kilit_state *current_state) {
+bool search_non_hashed(kilit_state *current_state) {
 	for(size_t i = 0; i < current_state->usb_index; i++) {
 		if(!current_state->storages[i].does_have_mounted_part)
 			continue;
 		for(size_t j = 0; j < current_state->storages[i].devp_index; j++) {
 			if(!current_state->storages[i].mount_devs[j].is_mounted)
 				continue;
-			printf("%s", current_state->storages[i].mount_devs[j].mount_point);
-			search_for(current_state->storages[i].mount_devs[j].mount_point,
-				current_state->salt);
+			//printf("%s", current_state->storages[i].mount_devs[j].mount_point);
+			return search_for(*current_state,
+				current_state->storages[i].mount_devs[j].mount_point,
+				current_state->storages[i].disk_name);
 		} 
+	}
+	return false;
+}
+
+
+
+void split_line_in_two(char line[HASHED_CAP], char first[HASHED_CAP], char second[HASHED_CAP]) {
+	for(size_t i = 0; i < strlen(line); i++) {
+		if(line[i] == ' ') {
+			strncpy(first, line+1, i-1);
+			// ab cde
+			strncpy(second, line+(i+1), strlen(line)-(i+1));
+			return;
+		}
 	}
 }
 
 void parse_file(kilit_state *current_state, char passwords[HASH_FILE_CAP], ssize_t count) {
 	int line_index = 0;
-	char salt[BCRYPT_HASHSIZE];
 	int last_index = 0;
 	for(ssize_t i = 0; i < count; i++) {
 		char one_line[HASHED_CAP] = {0};
 		if(passwords[i] == '\n') {
 			if(line_index == 0) {
-				strncpy(salt, passwords, i);
+				strncpy(current_state->salt, passwords, i);
 			}else {
 				strncpy(one_line, passwords+last_index, i-last_index);
 				printf("one_line: %s\n", one_line);
+				if(strlen(one_line) < 3) {
+					continue;
+				}
+				split_line_in_two(
+					one_line,
+					current_state->stored[line_index-1].device_name,
+					current_state->stored[line_index-1].hashed_password
+					);
+				/*printf("dev_name: '%s'\n	hash: '%s'\n",
+				current_state->stored[line_index-1].device_name,
+				current_state->stored[line_index-1].hashed_password);*/
+				current_state->stored_count++;
 			}
 			line_index++;
 			last_index = i;
@@ -204,8 +249,10 @@ void sync_with_file(kilit_state *current_state) {
 
 void init_kilit(kilit_state *current_state) {
 	sync_with_file(current_state);
-	if(bcrypt_gensalt(5, current_state->salt) != 0) {
-		printf("GENSALT FAILED\n");
+	if(strlen(current_state->salt)<1) {
+		if(bcrypt_gensalt(5, current_state->salt) != 0) {
+			printf("GENSALT FAILED\n");
+		}
 	}
 	char buff[COMMAND_OUTPUT_CAP] = {0};
 	FILE *fl = popen("ls /dev/disk/by-id/usb-* ", "r");

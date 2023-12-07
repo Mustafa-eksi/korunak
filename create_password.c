@@ -23,22 +23,25 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "kilitler.c"
 
 kilit_state durum = {0};
 
 int main(int argc, char *argv[])
 {
-	if(argc < 2) {
-		printf("Error: No password spesified.\n");
-		return -1;
-	}
-	//sync_with_file(&durum);
+	init_kilit(&durum);
 	bcrypt_gensalt(12, durum.salt);
-	printf("argv: %s\n",argv[1]);
+	
 	char hash[BCRYPT_HASHSIZE] = {0};
+	char password[BCRYPT_HASHSIZE] = {0};
+	char password_hash[BCRYPT_HASHSIZE] = {0};
 	printf("Salt: %s\n", durum.salt);
-	if(bcrypt_hashpw(argv[1], durum.salt, hash) != 0) {
+	time_t now = time(NULL);
+	sprintf(password, "%ld", now);
+	bcrypt_hashpw(password, durum.salt, password_hash);
+	printf("argv: %s\n",password_hash);
+	if(bcrypt_hashpw(password_hash, durum.salt, hash) != 0) {
 		printf("ERROR: bcrypt_hashpw failed\n");
 		return -1;
 	}

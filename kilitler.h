@@ -28,14 +28,14 @@ typedef struct mount_dev {
 }mount_dev;
 
 typedef struct usb_storage {
-	char disk_name[PATH_CAP];
+	char uuid[PATH_CAP];
 	mount_dev mount_devs[MAX_PART];
 	size_t devp_index;
 	bool does_have_mounted_part, checked;
 }usb_storage;
 
 typedef struct password_device {
-	char device_name[HASHED_CAP];
+	char uuid[HASHED_CAP];
 	char hashed_password[HASHED_CAP];
 }password_device;
 
@@ -52,7 +52,9 @@ struct two_indexes {
 	size_t i, j;
 };
 
-void add_to_storage(kilit_state *current_state, const char* link_path, const char* device_name);
+void get_uuid(char dev_path[PATH_CAP], char uuid[PATH_CAP]);
+
+void add_to_storage(kilit_state *current_state, const char* link_path);
 
 void trim_left(char* destination, const char str[PATH_CAP]);
 

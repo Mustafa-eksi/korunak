@@ -51,27 +51,25 @@ struct two_indexes {
 	size_t i, j;
 };
 
+// Usb detection
 void get_uuid(char dev_path[PATH_CAP], char uuid[PATH_CAP]);
-
 void add_to_storage(kilit_state *current_state, const char* link_path);
-
 void trim_left(char* destination, const char str[PATH_CAP]);
-
 void get_mountpoints(kilit_state *current_state);
-
 void detect_new_usbs(void);
 
+// For debug purposes only
 void dump_durum(const kilit_state current_state);
 
+// Password checking and cryptography stuff
 bool search_password(const kilit_state current_state, password_device devpass);
-
 bool check_for_password(char non_hashed[NON_HASHED_CAP], const char salt[BCRYPT_HASHSIZE]);
-
 bool search_non_hashed(kilit_state *current_state);
 
-
+// Passwords file syncing stuff
 void split_line_in_two(char line[HASHED_CAP], char first[HASHED_CAP], char second[HASHED_CAP]);
 void parse_file(kilit_state *current_state, char passwords[HASH_FILE_CAP], ssize_t count);
 void sync_with_file(kilit_state *current_state);
+
 void init_kilit(kilit_state *current_state);
 

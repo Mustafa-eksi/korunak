@@ -43,7 +43,6 @@ typedef struct kilit_state {
 	usb_storage storages[MAX_USB];
 	size_t usb_index;
 	bool kilitli;
-	char salt[BCRYPT_HASHSIZE];
 	password_device stored[MAX_PASSWORDS];
 	size_t stored_count;
 } kilit_state;

@@ -1,8 +1,13 @@
-CFLAGS=-Wall -ggdb -static -static-libgcc -static-libstdc++ -I/usr/include/ -I/home/mustafa/third-party/libbcrypt
-LIBS=-L/usr/local/lib/raylib/ -l:libraylib.a -L/usr/local/lib/ -l:bcrypt.a
+CFLAGS=-Wall -ggdb -static-libgcc -I/usr/local/include -I/usr/include/ -I/home/mustafa/third-party/libbcrypt
+LIBS=-L/usr/local/lib -lraylib -L/usr/local/lib/ -l:bcrypt.a -lm
 
 korunak: korunak.c kilitler.c kilitler.h
 	gcc $(CFLAGS) -o korunak korunak.c $(LIBS)
 
 create_password: create_password.c
 	gcc $(CFLAGS) -o create_password create_password.c $(LIBS)
+
+usb_detector: usb_detector.c test_main.c
+	gcc -ggdb -o usb_detector usb_detector.c
+	gcc -ggdb -o test_main test_main.c
+

@@ -151,6 +151,7 @@ void get_mountpoints(kilit_state *current_state) {
 			mount_point);*/
 		line_index++;
 	}
+	pclose(fl);
 }
 
 bool search_password(const kilit_state current_state, password_device non_hashed) {
@@ -171,7 +172,7 @@ bool search_password(const kilit_state current_state, password_device non_hashed
 }
 
 bool search_for(const kilit_state current_state, const char mountpoint[PATH_CAP], const char uuid[PATH_CAP]) {
-	
+	//printf(" --- search_for: mp: %s, uuid: %s\n",mountpoint,uuid);
 	char buff[COMMAND_OUTPUT_CAP] = {0};
 	char command[PATH_CAP] = {0};
 	sprintf(command, "find %s -name "PASS_FILE_NAME, mountpoint);
@@ -180,8 +181,9 @@ bool search_for(const kilit_state current_state, const char mountpoint[PATH_CAP]
 		printf("Popen failed\n");
 		return false;
 	}
+	bool ret = false;
 	while(fgets(buff, sizeof(buff), fl) != NULL) {
-		printf("search for\n");
+		//printf("search for %s\n", buff);
 		char clean_path[COMMAND_OUTPUT_CAP] = {0};
 		strncpy(clean_path, buff, strlen(buff)-1); // trim the last '\n'
 		int non_hashed = open(clean_path, O_RDONLY);
@@ -190,10 +192,12 @@ bool search_for(const kilit_state current_state, const char mountpoint[PATH_CAP]
 		password_device passdev = {0};
 		strcpy(passdev.uuid, uuid);
 		strncpy(passdev.hashed_password, non_hashed_content, strlen(non_hashed_content)-1);
-		return search_password(current_state, passdev);
+		ret = search_password(current_state, passdev);
+		break;
 		//printf("-- %s\n", non_hashed_content);
 	}
-	return false;
+	pclose(fl);
+	return ret;
 }
 
 bool search_non_hashed(kilit_state *current_state) {
@@ -256,44 +260,47 @@ void sync_with_file(kilit_state *current_state) {
 }
 
 void init_kilit(kilit_state *current_state) {
-	sync_with_file(current_state);
+	const char* usb_directory = "/dev/disk/by-id/";
 	char buff[COMMAND_OUTPUT_CAP] = {0};
-	FILE *fl = popen("ls /dev/disk/by-id/usb-* ", "r");
-	if(fl == NULL) {
-		printf("Popen failed\n");
+	
+	char *dir_name;
+	DIR *d;
+	struct dirent *dir;
+	
+	d = opendir(usb_directory);
+	if(d == NULL) {
+		printf("Opening /dev/disk/by-id/ is not possible...\n");
 		return;
 	}
-	while(fgets(buff, sizeof(buff), fl) != NULL) {
-		buff[strlen(buff)-1] = 0;
-		//printf("%s\n", buff);
-		char link_buffer[PATH_CAP] = {0};
-		ssize_t length = 0;
-		if((length = readlink(buff, link_buffer, strlen(buff)-1)) == -1) {
-			printf("Error at readlink: %s\n", strerror(errno));
-			return;
-		}
-		link_buffer[length] = '\0';
-		strncpy(link_buffer, "/dev", 4);
-		for(size_t i = 4; i < strlen(link_buffer); i++) {
-			link_buffer[i] = link_buffer[i+1];
-			if(i == strlen(link_buffer)-1) {
-				link_buffer[i] = 0;
+	while ((dir = readdir(d)) != NULL)
+        {
+		if(strncmp(dir->d_name, "usb-", 4) == 0) {
+			strcpy(buff, usb_directory);
+			strncpy(buff+strlen(usb_directory), dir->d_name, strlen(dir->d_name));
+			char link_buffer[PATH_CAP] = {0};
+			ssize_t length = 0;
+			if((length = readlink(buff, link_buffer, strlen(buff)-1)) == -1) {
+				printf("Error at readlink: %s\n", strerror(errno));
 				break;
 			}
-		}
-		char device_name[PATH_CAP] = {0};
-		for(size_t i = 20; i < strlen(buff); i++) {
-			if(buff[i] == '-') {
-				strncpy(device_name, buff+20, i-20);
-				break;
+			link_buffer[length] = '\0';
+			strncpy(link_buffer, "/dev", 4);
+			for(size_t i = 4; i < strlen(link_buffer); i++) {
+				link_buffer[i] = link_buffer[i+1];
+				if(i == strlen(link_buffer)-1) {
+					link_buffer[i] = 0;
+					break;
+				}
 			}
+			
+			add_to_storage(current_state, link_buffer);
+			
+			memset(buff, 0, strlen(buff));
 		}
-		
-		add_to_storage(current_state, link_buffer);
-		
-		memset(buff, 0, strlen(buff));
-	}
+        }
+        printf("opendir ended\n");
+        closedir(d);
+        
 	if(current_state->usb_index != 0)
 		get_mountpoints(current_state);
-	pclose(fl);
 }

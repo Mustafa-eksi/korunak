@@ -183,7 +183,6 @@ bool search_for(const kilit_state current_state, const char mountpoint[PATH_CAP]
 	}
 	bool ret = false;
 	while(fgets(buff, sizeof(buff), fl) != NULL) {
-		//printf("search for %s\n", buff);
 		char clean_path[COMMAND_OUTPUT_CAP] = {0};
 		strncpy(clean_path, buff, strlen(buff)-1); // trim the last '\n'
 		int non_hashed = open(clean_path, O_RDONLY);
@@ -207,7 +206,6 @@ bool search_non_hashed(kilit_state *current_state) {
 		for(size_t j = 0; j < current_state->storages[i].devp_index; j++) {
 			if(!current_state->storages[i].mount_devs[j].is_mounted)
 				continue;
-			//printf("%s", current_state->storages[i].mount_devs[j].mount_point);
 			bool ret = search_for(*current_state,
 				current_state->storages[i].mount_devs[j].mount_point,
 				current_state->storages[i].uuid);
@@ -239,7 +237,7 @@ void parse_file(kilit_state *current_state, char passwords[HASH_FILE_CAP], ssize
 			current_state->stored[line_index].hashed_password);
 			current_state->stored_count++;
 			line_index++;
-			last_index = i;
+			last_index = i+1;
 			continue;
 		}
 	}
@@ -263,7 +261,6 @@ void init_kilit(kilit_state *current_state) {
 	const char* usb_directory = "/dev/disk/by-id/";
 	char buff[COMMAND_OUTPUT_CAP] = {0};
 	
-	char *dir_name;
 	DIR *d;
 	struct dirent *dir;
 	

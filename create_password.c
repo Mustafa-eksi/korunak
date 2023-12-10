@@ -24,72 +24,84 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <gtk/gtk.h>
+#include <string.h>
 #include "kilitler.c"
 
 kilit_state durum = {0};
 
-char* salter() {
+void salter(char sifre[BCRYPT_HASHSIZE], char hash[BCRYPT_HASHSIZE]) {
 	char salt[BCRYPT_HASHSIZE] = {0};
-	init_kilit(&durum);
 	bcrypt_gensalt(12, salt);
 	
-	char hash[BCRYPT_HASHSIZE] = {0};
 	char password[BCRYPT_HASHSIZE] = {0};
-	char password_hash[BCRYPT_HASHSIZE] = {0};
-	printf("Salt: %s\n", salt);
 	time_t now = time(NULL);
 	sprintf(password, "%ld", now);
-	bcrypt_hashpw(password, salt, password_hash);
-	printf("argv: %s\n",password_hash);
-	if(bcrypt_hashpw(password_hash, salt, hash) != 0) {
+	bcrypt_hashpw(password, salt, sifre);
+	if(bcrypt_hashpw(sifre, salt, hash) != 0) {
 		printf("ERROR: bcrypt_hashpw failed\n");
+	}
+}
+
+void add(char sifre[BCRYPT_HASHSIZE], char hash[BCRYPT_HASHSIZE], size_t usb_index) {
+	int dosya = open(HASHED_PATH, O_WRONLY | O_APPEND);
+	if(dosya == -1) {
+		printf("Couldn't open "HASHED_PATH"\n");
+		exit(-1);
+	}
+	
+	char line[2048] = {0};
+	for(size_t j = 0; j < durum.storages[usb_index].devp_index; j++) {
+		if(!durum.storages[usb_index].mount_devs[j].is_mounted)
+			continue;
+		char path[1050] = {0};
+		sprintf(path, "%s/"PASS_FILE_NAME,
+			durum.storages[usb_index].mount_devs[j].mount_point);
+		int sifre_dosya = open(path, O_CREAT | O_WRONLY);
+		if(sifre_dosya == -1) {
+			printf("Couldn't open "PASS_FILE_NAME"\n");
+			break;
+		}
+		char sifre_buff[PATH_CAP] = {0};
+		sprintf(sifre_buff,"%s\n", sifre);
+		write(sifre_dosya, sifre_buff, strlen(sifre_buff));
+		close(sifre_dosya);
+		
+		sprintf(line, "%s %s\n", durum.storages[usb_index].uuid, hash);
+		printf("line: %s\n", line);
+		write(dosya, line, strlen(line));
+		
+		break;
+	}
+	
+	close(dosya);
+}
+
+int main(int argc, char **argv) {
+	if(argc < 2) {
+		printf("Error: no arguments given\n");
 		return -1;
 	}
-	printf("Hashed password: %s\n", hash);
+	init_kilit(&durum);
+	if(strcmp(argv[1], "list") == 0) {
+		dump_durum(durum);
+	}else if(strcmp(argv[1], "add") == 0) {
+		if(argc < 3) {
+			printf("Error: no arguments given 1-n\n");
+			return -1;
+		}
+		int index = atoi(argv[2]);
+		if(index == 0) {
+			printf("0 is not accepted, use 1 based indexing.\n");
+			return -1;
+		}
+		index--;
+		char password[BCRYPT_HASHSIZE] = {0};
+		char hashed_password[BCRYPT_HASHSIZE] = {0};
+		salter(password, hashed_password);
+		add(password, hashed_password, index);
+		printf("Added successfully\n");
+	}else {
+		printf("COMMAND UNKNOWN: '%s'\n", argv[1]);
+	}
+	return 0;
 }
-
-static void
-quit_activated(GSimpleAction *action, GVariant *parameter, GApplication *application) {
-  g_application_quit (application);
-}
-
-static void
-app_activate (GApplication *application) {
-  GtkApplication *app = GTK_APPLICATION (application);
-  GtkWidget *win = gtk_application_window_new (app);
-  gtk_window_set_title (GTK_WINDOW (win), "Şifre oluşturucu");
-  gtk_window_set_default_size (GTK_WINDOW (win), 600, 800);
-
-  gtk_window_present (GTK_WINDOW (win));
-}
-
-static void
-app_startup (GApplication *application) {
-  GtkApplication *app = GTK_APPLICATION (application);
-
-  GSimpleAction *act_quit = g_simple_action_new ("quit", NULL);
-  g_action_map_add_action (G_ACTION_MAP (app), G_ACTION (act_quit));
-  g_signal_connect (act_quit, "activate", G_CALLBACK (quit_activated), application);
-
-  
-}
-
-#define APPLICATION_ID "me.okul.korunak.mustafa"
-
-
-int main(int argc, char *argv[])
-{
-	
-	GtkApplication *app;
-	int stat;
-
-	app = gtk_application_new (APPLICATION_ID, G_APPLICATION_FLAGS_NONE);
-	g_signal_connect (app, "startup", G_CALLBACK (app_startup), NULL);
-	g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
-
-	stat =g_application_run (G_APPLICATION (app), argc, argv);
-	g_object_unref (app);
-	return stat;
-}
-
